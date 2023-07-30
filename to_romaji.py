@@ -73,12 +73,12 @@ def main():
                         skipped += 1
                     continue
 
-                if not is_cjk(old_title):
-                    no_cjk += 1
-                    continue
-
                 if 'ORIG_TITLE' in music.tags:
                     skipped += 1
+                    continue
+
+                if not is_cjk(old_title):
+                    no_cjk += 1
                     continue
 
                 new_title = ''
