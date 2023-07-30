@@ -8,9 +8,9 @@ positional arguments:
   directory
 
 optional arguments:
-  -h, --help                           Show this help message and exit
-  -d, --dry-run                     Perform dry run
+  -h, --help              Show this help message and exit
+  -d, --dry-run           Perform dry run
   -a, --append-original   Append original title (in brackets)
-  -r, --restore                     Restore original title
+  -r, --restore           Restore original title
 
 ```
