@@ -108,6 +108,8 @@ def main():
             new_title = new_title \
                 .replace(" .", ".") \
                 .replace(" !", "!") \
+                .replace("“ ", "“") \
+                .replace(" ”", "”") \
                 .replace(" ,", ",") \
                 .replace("( ", "(") \
                 .replace(" )", ")")
@@ -117,9 +119,13 @@ def main():
                 new_title = new_title.replace("(Instrumental)", "")
 
             new_title = new_title.strip()
+
             # Append old title
             if args.append_original:
                 new_title += " [" + old_title + "]"
+
+            if len(new_title) < 1:
+                new_title = old_title
 
             if not args.dry_run:
                 music['title'] = new_title
