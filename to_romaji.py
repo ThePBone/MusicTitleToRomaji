@@ -1,11 +1,14 @@
 import argparse
 import os
 import unicodedata
+
+import mutagen.flac
 import wcwidth
 
 import music_tag
 import pykakasi
 from music_tag.file import TAG_MAP_ENTRY
+from mutagen import MutagenError
 
 cjk_ranges = [
     {"from": ord(u"\u3300"), "to": ord(u"\u33ff")},  # compatibility ideographs
@@ -60,7 +63,13 @@ def main():
             if not file.endswith(('.mp3', '.flac', '.wav', '.m4a', '.ogg', '.')):
                 continue
 
-            music = music_tag.load_file(os.path.join(root, file))
+            try:
+                music = music_tag.load_file(os.path.join(root, file))
+            except MutagenError as e:
+                print(e)
+                print(f"--> Failed to handle file: '{os.path.join(root, file)}'")
+                exit(1)
+
             music.tag_map['originaltitle'] = TAG_MAP_ENTRY(type=str)
             old_title = music['title'].value
 
