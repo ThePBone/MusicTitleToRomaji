@@ -68,6 +68,7 @@ def main():
             except MutagenError as e:
                 print(e)
                 print(f"--> Failed to handle file: '{os.path.join(root, file)}'")
+                print("File may be corrupt or empty. Please check.")
                 exit(1)
 
             music.tag_map['originaltitle'] = TAG_MAP_ENTRY(type=str)
