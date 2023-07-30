@@ -115,12 +115,10 @@ def main():
             print(f'{pad(old_title, 40)} {new_title:40s}')
 
     if args.restore:
-        print("{}\titems restored.\n{}\titems had no original title.".format(processed, skipped))
+        print("{:<6}items restored.\n{:<6}items had no original title.".format(processed, skipped))
     else:
-        print(
-            "{}\tnew items processed.\n{}\titems already converted.\n{}\titems had no CJK characters.".format(processed,
-                                                                                                              skipped,
-                                                                                                              no_cjk))
+        print("{:<6}new items processed.\n{:<6}items already converted.\n{:<6}items had no CJK characters."
+              .format(processed, skipped, no_cjk))
 
 
 if __name__ == '__main__':
