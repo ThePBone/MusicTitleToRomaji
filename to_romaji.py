@@ -1,14 +1,9 @@
 import argparse
 import os
-import unicodedata
 
-import mutagen.flac
+import taglib
 import wcwidth
-
-import music_tag
 import pykakasi
-from music_tag.file import TAG_MAP_ENTRY
-from mutagen import MutagenError
 
 cjk_ranges = [
     {"from": ord(u"\u3300"), "to": ord(u"\u33ff")},  # compatibility ideographs
@@ -64,78 +59,77 @@ def main():
                 continue
 
             try:
-                music = music_tag.load_file(os.path.join(root, file))
-            except MutagenError as e:
+                with taglib.File(os.path.join(root, file)) as music:
+                    old_title = music['title']
+
+                    if args.restore:
+                        if "originaltitle" in music.tags and len(music.tags["originaltitle"] > 0):
+                            if not args.dry_run:
+                                music['title'] = music.tags["originaltitle"]
+                                music['originaltitle'] = ""
+                                music.save()
+                            processed += 1
+                        else:
+                            skipped += 1
+                        continue
+
+                    if not is_cjk(old_title):
+                        no_cjk += 1
+                        continue
+
+                    if 'originaltitle' in music.tags:
+                        skipped += 1
+                        continue
+
+                    new_title = ''
+                    for segment in kks.convert(old_title):
+                        new_segment = segment['hepburn']
+                        # Capitalize, if segment was converted
+                        if segment['orig'] != segment['hepburn']:
+                            new_segment = new_segment.capitalize()
+                        new_title += new_segment + ' '
+
+                    # Remove duplicate whitespaces
+                    new_title = ' '.join(new_title.split())
+                    # Remove other unneeded whitespaces
+                    new_title = new_title \
+                        .replace(" .", ".") \
+                        .replace(" !", "!") \
+                        .replace("“ ", "“") \
+                        .replace(" ”", "”") \
+                        .replace(" ,", ",") \
+                        .replace(" :", ":") \
+                        .replace("( ", "(") \
+                        .replace(" )", ")")
+
+                    # We don't need that twice...
+                    if args.append_original:
+                        new_title = new_title.replace("(Instrumental)", "")
+
+                    new_title = new_title.strip()
+
+                    # Append old title
+                    if args.append_original:
+                        new_title += " [" + old_title + "]"
+
+                    if len(new_title) < 1:
+                        new_title = old_title
+
+                    if not args.dry_run:
+                        music['title'] = new_title
+                        if "originaltitle" not in music.tags or len(music.tags["originaltitle"] <= 0):
+                            music['originaltitle'] = old_title
+                        music.save()
+
+                    processed += 1
+                    print(f'{pad(old_title, 50)} {new_title:40s}')
+
+            except Exception as e:
                 print(e)
                 print(f"--> Failed to handle file: '{os.path.join(root, file)}'")
                 print("File may be corrupt or empty. Please check.")
                 exit(1)
 
-            music.tag_map['originaltitle'] = TAG_MAP_ENTRY(type=str)
-            old_title = music['title'].value
-
-            if args.restore:
-                tup = [item for item in music.mfile.tags if item[0].lower() == "originaltitle"]
-                if len(tup) > 0:
-                    if not args.dry_run:
-                        music['title'] = tup[0][1]
-                        music.mfile.tags.remove(tup[0])
-                        music.save()
-                    processed += 1
-                else:
-                    skipped += 1
-                continue
-
-            if not is_cjk(old_title):
-                no_cjk += 1
-                continue
-
-            if 'originaltitle' in music.raw.parent.mfile.tags:
-                skipped += 1
-                continue
-
-            new_title = ''
-            for segment in kks.convert(old_title):
-                new_segment = segment['hepburn']
-                # Capitalize, if segment was converted
-                if segment['orig'] != segment['hepburn']:
-                    new_segment = new_segment.capitalize()
-                new_title += new_segment + ' '
-
-            # Remove duplicate whitespaces
-            new_title = ' '.join(new_title.split())
-            # Remove other unneeded whitespaces
-            new_title = new_title \
-                .replace(" .", ".") \
-                .replace(" !", "!") \
-                .replace("“ ", "“") \
-                .replace(" ”", "”") \
-                .replace(" ,", ",") \
-                .replace(" :", ":") \
-                .replace("( ", "(") \
-                .replace(" )", ")")
-
-            # We don't need that twice...
-            if args.append_original:
-                new_title = new_title.replace("(Instrumental)", "")
-
-            new_title = new_title.strip()
-
-            # Append old title
-            if args.append_original:
-                new_title += " [" + old_title + "]"
-
-            if len(new_title) < 1:
-                new_title = old_title
-
-            if not args.dry_run:
-                music['title'] = new_title
-                if 'originaltitle' not in [x[0].lower() for x in music.mfile.tags]:
-                    music.mfile.tags.append(('originaltitle', old_title))
-                music.save()
-
-            processed += 1
-            print(f'{pad(old_title, 50)} {new_title:40s}')
 
     if args.restore:
         print("{:<6}items restored.\n{:<6}items had no original title.".format(processed, skipped))
