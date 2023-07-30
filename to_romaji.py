@@ -99,8 +99,14 @@ def main():
                 .replace(" .", ".") \
                 .replace(" !", "!") \
                 .replace(" ,", ",") \
-                .replace("(Instrumental)", "") \
-                .strip()
+                .replace("( ", "(") \
+                .replace(" )", ")")
+
+            # We don't need that twice...
+            if args.append_original:
+                new_title = new_title.replace("(Instrumental)", "")
+
+            new_title = new_title.strip()
             # Append old title
             if args.append_original:
                 new_title += " [" + old_title + "]"
@@ -112,7 +118,7 @@ def main():
                 music.save()
 
             processed += 1
-            print(f'{pad(old_title, 40)} {new_title:40s}')
+            print(f'{pad(old_title, 50)} {new_title:40s}')
 
     if args.restore:
         print("{:<6}items restored.\n{:<6}items had no original title.".format(processed, skipped))
