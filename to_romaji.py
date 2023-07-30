@@ -63,7 +63,7 @@ def main():
                 old_title = music.tags['TITLE'][0]
 
                 if args.restore:
-                    if "ORIG_TITLE" in music.tags and len(music.tags["ORIG_TITLE"] > 0):
+                    if "ORIG_TITLE" in music.tags and len(music.tags["ORIG_TITLE"]) > 0:
                         if not args.dry_run:
                             music.tags['TITLE'] = music.tags["ORIG_TITLE"]
                             del music.tags['ORIG_TITLE']
@@ -117,7 +117,7 @@ def main():
 
                 if not args.dry_run:
                     music.tags['TITLE'] = [new_title]
-                    if "ORIG_TITLE" not in music.tags or len(music.tags["ORIG_TITLE"] <= 0):
+                    if "ORIG_TITLE" not in music.tags or len(music.tags["ORIG_TITLE"]) <= 0:
                         music.tags['ORIG_TITLE'] = [old_title]
                     music.save()
 
