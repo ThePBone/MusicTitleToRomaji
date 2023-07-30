@@ -111,6 +111,7 @@ def main():
                 .replace("“ ", "“") \
                 .replace(" ”", "”") \
                 .replace(" ,", ",") \
+                .replace(" :", ":") \
                 .replace("( ", "(") \
                 .replace(" )", ")")
 
