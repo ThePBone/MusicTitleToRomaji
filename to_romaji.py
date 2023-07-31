@@ -45,7 +45,8 @@ def main():
     parser.add_argument("-d", "--dry-run", help="Perform dry run", action='store_true')
     parser.add_argument("-a", "--append-original", help="Append original title (in brackets)", action='store_true')
     parser.add_argument("-r", "--restore", help="Restore original title", action='store_true')
-    parser.add_argument('directory')
+    parser.add_argument("-e", "--exclude", help="Exclude paths that contain the given string", nargs="*")
+    parser.add_argument('directory', nargs="*")
     args = parser.parse_args()
 
     kks = pykakasi.Kakasi()
@@ -54,85 +55,90 @@ def main():
     skipped = 0
     processed = 0
 
-    for root, dirs, files in os.walk(args.directory):
-        for file in files:
-            if not file.endswith(('.mp3', '.flac', '.wav', '.m4a', '.ogg', '.')):
-                continue
+    for directory in args.directory:
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                if not file.endswith(('.mp3', '.flac', '.wav', '.m4a', '.ogg', '.')):
+                    continue
 
-            try:
-                with taglib.File(os.path.join(root, file)) as music:
-                    old_title = music.tags['TITLE'][0]
+                path = os.path.join(root, file)
+                if args.exclude is not None and any(exclude in path for exclude in args.exclude):
+                    continue
 
-                    if args.restore:
-                        if "ORIG_TITLE" in music.tags and len(music.tags["ORIG_TITLE"]) > 0:
-                            if not args.dry_run:
-                                music.tags['TITLE'] = music.tags["ORIG_TITLE"]
-                                del music.tags['ORIG_TITLE']
-                                music.save()
-                            processed += 1
-                        else:
+                try:
+                    with taglib.File(path) as music:
+                        old_title = music.tags['TITLE'][0]
+
+                        if args.restore:
+                            if "ORIG_TITLE" in music.tags and len(music.tags["ORIG_TITLE"]) > 0:
+                                if not args.dry_run:
+                                    music.tags['TITLE'] = music.tags["ORIG_TITLE"]
+                                    del music.tags['ORIG_TITLE']
+                                    music.save()
+                                processed += 1
+                            else:
+                                skipped += 1
+                            continue
+
+                        if 'ORIG_TITLE' in music.tags:
                             skipped += 1
-                        continue
+                            continue
 
-                    if 'ORIG_TITLE' in music.tags:
-                        skipped += 1
-                        continue
+                        if not is_cjk(old_title):
+                            no_cjk += 1
+                            continue
 
-                    if not is_cjk(old_title):
-                        no_cjk += 1
-                        continue
+                        new_title = ''
+                        for segment in kks.convert(old_title):
+                            new_segment = segment['hepburn']
+                            # Capitalize, if segment was converted
+                            if segment['orig'] != segment['hepburn']:
+                                new_segment = new_segment.capitalize()
+                            new_title += new_segment + ' '
 
-                    new_title = ''
-                    for segment in kks.convert(old_title):
-                        new_segment = segment['hepburn']
-                        # Capitalize, if segment was converted
-                        if segment['orig'] != segment['hepburn']:
-                            new_segment = new_segment.capitalize()
-                        new_title += new_segment + ' '
+                        # Remove duplicate whitespaces
+                        new_title = ' '.join(new_title.split())
+                        # Remove other unneeded whitespaces
+                        new_title = new_title \
+                            .replace(" .", ".") \
+                            .replace(" !", "!") \
+                            .replace("“ ", "“") \
+                            .replace(" ”", "”") \
+                            .replace(" ,", ",") \
+                            .replace(" :", ":") \
+                            .replace("[ ", "]") \
+                            .replace(" ]", "]") \
+                            .replace("( ", "(") \
+                            .replace(" )", ")")
 
-                    # Remove duplicate whitespaces
-                    new_title = ' '.join(new_title.split())
-                    # Remove other unneeded whitespaces
-                    new_title = new_title \
-                        .replace(" .", ".") \
-                        .replace(" !", "!") \
-                        .replace("“ ", "“") \
-                        .replace(" ”", "”") \
-                        .replace(" ,", ",") \
-                        .replace(" :", ":") \
-                        .replace("[ ", "]") \
-                        .replace(" ]", "]") \
-                        .replace("( ", "(") \
-                        .replace(" )", ")")
+                        # We don't need that twice...
+                        if args.append_original:
+                            new_title = new_title.replace("(Instrumental)", "")
 
-                    # We don't need that twice...
-                    if args.append_original:
-                        new_title = new_title.replace("(Instrumental)", "")
+                        new_title = new_title.strip()
 
-                    new_title = new_title.strip()
+                        # Append old title
+                        if args.append_original:
+                            new_title += " [" + old_title + "]"
 
-                    # Append old title
-                    if args.append_original:
-                        new_title += " [" + old_title + "]"
+                        if len(new_title) < 1:
+                            new_title = old_title
 
-                    if len(new_title) < 1:
-                        new_title = old_title
+                        if not args.dry_run:
+                            music.tags['TITLE'] = [new_title]
+                            if "ORIG_TITLE" not in music.tags or len(music.tags["ORIG_TITLE"]) <= 0:
+                                music.tags['ORIG_TITLE'] = [old_title]
+                            music.save()
 
-                    if not args.dry_run:
-                        music.tags['TITLE'] = [new_title]
-                        if "ORIG_TITLE" not in music.tags or len(music.tags["ORIG_TITLE"]) <= 0:
-                            music.tags['ORIG_TITLE'] = [old_title]
-                        music.save()
+                        processed += 1
+                        print(f'{pad(old_title, 50)} {new_title:40s}')
 
-                    processed += 1
-                    print(f'{pad(old_title, 50)} {new_title:40s}')
-
-            except Exception as e:
-                print(traceback.format_exc())
-                print(e)
-                print(f"--> Failed to handle file: '{os.path.join(root, file)}'")
-                print("File may be corrupt or empty. Please check.")
-                exit(1)
+                except Exception as e:
+                    print(traceback.format_exc())
+                    print(e)
+                    print(f"--> Failed to handle file: '{os.path.join(root, file)}'")
+                    print("File may be corrupt or empty. Please check.")
+                    exit(1)
 
 
     if args.restore:
